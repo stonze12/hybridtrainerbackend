@@ -59,6 +59,10 @@ app.use(require('./routes/auth_routes'));
 app.use(require('./routes/user_routes'));
 app.use(require('./routes/billing_routes'));
 app.use(require('./routes/coach_routes'));
+app.use(require('./routes/nutrition_routes'));
+app.use(require('./routes/food_routes'));
+app.use(require('./routes/sparring_routes'));
+app.use(require('./routes/opponent_routes'));
 app.use(require('./routes/ai_feature_routes'));
 app.use(require('./routes/admin_routes'));
 
