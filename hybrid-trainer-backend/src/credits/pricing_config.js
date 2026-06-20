@@ -4,13 +4,28 @@
 // price is a one-line edit instead of a grep-and-pray across the codebase.
 // ============================================================================
 
+// ============================================================================
+// FEATURE COSTS — derived from real measured Anthropic API costs per
+// feature (system prompt size, image token cost for vision features,
+// typical output length against each call's max_tokens), priced at
+// roughly 2.7-3.4x real cost even at the WORST-CASE pack tier (the
+// $49.99/10,000-credit Elite Pack, which has the lowest $-per-credit
+// rate of any pack). This margin covers Anthropic's actual per-call
+// cost, Stripe's processing fee (~3%), and hosting — not just
+// breakeven. Recalculate these whenever Anthropic's published per-token
+// rates change, or if a system prompt/max_tokens value changes
+// meaningfully in the app code, since both directly change real cost.
+// ============================================================================
+
 const FEATURE_COSTS = {
-  ai_coach_question:     5,
-  custom_training_plan:  15,
-  nutrition_plan:        10,
-  sparring_review:       20,
-  opponent_analysis:     25,
-  fight_camp_builder:    30,
+  ai_coach_question:     12,  // claude-sonnet-4-6, ~3.8k input incl. system prompt + history, ~700 output
+  custom_training_plan:  12,  // same call shape as ai_coach_question
+  nutrition_plan:        30,  // claude-sonnet-4-6, full 7-day plan generation, ~3.2k output tokens (largest single output in the app)
+  sparring_review:       10,  // claude-sonnet-4-6, 6 video frames + analysis
+  opponent_analysis:     12,  // claude-sonnet-4-6, 8 video frames + analysis
+  fight_camp_builder:    18,  // claude-sonnet-4-6, longer-form multi-week plan output
+  food_search:           1,   // claude-haiku-4-5, short text-based nutrition lookup — cheapest call in the app
+  food_photo_estimate:   2,   // claude-sonnet-4-6, single image + small JSON output
 };
 
 const SIGNUP_BONUS_CREDITS = 25;
