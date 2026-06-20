@@ -132,12 +132,14 @@ CREATE TYPE credit_action AS ENUM (
     'purchase',                -- + credit pack
     'admin_adjustment',        -- manual correction by an admin
     'refund_clawback',         -- credits removed because a purchase was refunded
-    'ai_coach_question',        -- -5
-    'custom_training_plan',     -- -15
-    'nutrition_plan',           -- -10
-    'sparring_review',          -- -20
-    'opponent_analysis',        -- -25
-    'fight_camp_builder'        -- -30
+    'ai_coach_question',        -- -12
+    'custom_training_plan',     -- -12
+    'nutrition_plan',           -- -30
+    'sparring_review',          -- -10
+    'opponent_analysis',        -- -12
+    'fight_camp_builder',       -- -18
+    'food_search',              -- -1
+    'food_photo_estimate'       -- -2
 );
 
 CREATE TABLE credit_transactions (
@@ -161,7 +163,8 @@ CREATE INDEX idx_credit_tx_action ON credit_transactions (action);
 -- ----------------------------------------------------------------------------
 CREATE TYPE ai_feature AS ENUM (
     'ai_coach_question', 'custom_training_plan', 'nutrition_plan',
-    'sparring_review', 'opponent_analysis', 'fight_camp_builder'
+    'sparring_review', 'opponent_analysis', 'fight_camp_builder',
+    'food_search', 'food_photo_estimate'
 );
 
 CREATE TABLE ai_requests (
