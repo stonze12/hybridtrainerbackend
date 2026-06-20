@@ -1,0 +1,30 @@
+# ============================================================================
+# Fly.io app configuration. The `app` name below is a placeholder — Fly
+# will ask you to confirm/change it during `fly launch` (see walkthrough
+# step 2), and whatever you choose there should replace this value.
+# ============================================================================
+
+app = "hybrid-trainer-api"
+primary_region = "iad"  # change to whichever Fly region is closest to your Supabase project's region
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false   # keep the machine always-on — see FLY_DEPLOY.md
+                                 # for why this matters specifically for Stripe webhooks
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  timeout = "5s"
+  path = "/health"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
