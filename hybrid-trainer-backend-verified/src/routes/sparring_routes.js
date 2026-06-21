@@ -1,7 +1,7 @@
 // ============================================================================
-// SPARRING / TECHNIQUE ANALYSIS ROUTE \u2014 matches the app's real Analyze
+// SPARRING / TECHNIQUE ANALYSIS ROUTE — matches the app's real Analyze
 // tab exactly: combo metadata + a focus area + 4-8 inline base64 JPEG
-// frames extracted client-side from the video (NOT pre-uploaded URLs \u2014
+// frames extracted client-side from the video (NOT pre-uploaded URLs —
 // the original route stub assumed cloud-storage URLs, which isn't how
 // the app actually works; it extracts frames to canvas and sends them
 // directly, the same pattern as the Coach and Opponent Scout features).
@@ -83,7 +83,7 @@ router.post('/api/sparring/review', requireAuth, aiRateLimit, async (req, res, n
   if (frames.length > 8) {
     return res.status(400).json({ error: 'Maximum 8 frames per analysis.' });
   }
-  // Rough sanity cap \u2014 8 frames at the app's ~480px scale should never
+  // Rough sanity cap — 8 frames at the app's ~480px scale should never
   // approach this; catches abuse via oversized payloads.
   const totalSize = frames.reduce((sum, f) => sum + f.length, 0);
   if (totalSize > 15_000_000) {
@@ -93,7 +93,7 @@ router.post('/api/sparring/review', requireAuth, aiRateLimit, async (req, res, n
   const userContent = [
     {
       type: 'text',
-      text: `I am performing Combination ${comboNum}: ${comboName}.\nSequence: ${(strikes || []).join(' \u2192 ')}\nCorrect exit: ${exitDetail || 'not specified'}\n\n${FOCUS_MAP[focus] || FOCUS_MAP.all}\n\nHere are ${frames.length} frames from my clip. Return JSON only.`,
+      text: `I am performing Combination ${comboNum}: ${comboName}.\nSequence: ${(strikes || []).join(' → ')}\nCorrect exit: ${exitDetail || 'not specified'}\n\n${FOCUS_MAP[focus] || FOCUS_MAP.all}\n\nHere are ${frames.length} frames from my clip. Return JSON only.`,
     },
     ...frames.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } })),
   ];
@@ -115,7 +115,7 @@ router.post('/api/sparring/review', requireAuth, aiRateLimit, async (req, res, n
       const raw = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
       result = JSON.parse(raw.replace(/```json|```/g, '').trim());
     } catch (e) {
-      return res.status(502).json({ error: 'Analysis returned malformed data \u2014 try again.' });
+      return res.status(502).json({ error: 'Analysis returned malformed data — try again.' });
     }
 
     res.json({
