@@ -1,5 +1,5 @@
 // ============================================================================
-// OPPONENT SCOUT ROUTE \u2014 matches the app's real Scout tab: optional text
+// OPPONENT SCOUT ROUTE — matches the app's real Scout tab: optional text
 // context plus up to 8 inline base64 JPEG frames extracted client-side.
 // Same inline-frames pattern as sparring_routes.js, not the URL-based
 // shape the original route stub assumed.
@@ -99,7 +99,7 @@ router.post('/api/opponent/analyze', requireAuth, aiRateLimit, async (req, res, 
       const raw = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
       result = JSON.parse(raw.replace(/```json|```/g, '').trim());
     } catch (e) {
-      return res.status(502).json({ error: 'Scout returned malformed data \u2014 try again.' });
+      return res.status(502).json({ error: 'Scout returned malformed data — try again.' });
     }
 
     res.json({
