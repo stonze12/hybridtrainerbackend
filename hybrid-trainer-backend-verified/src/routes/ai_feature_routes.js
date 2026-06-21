@@ -49,7 +49,7 @@ router.post('/api/training-plans/generate', requireAuth, aiRateLimit, async (req
     return res.status(400).json({ error: 'experienceLevel, goals, and daysPerWeek are required.' });
   }
   try {
-    const { response, creditsCharged } = await runAiRequest({
+    const { response, creditsCharged, viaSubscription, allowanceUsed, allowanceLimit, tierLabel } = await runAiRequest({
       userId: req.user.id,
       feature: 'custom_training_plan',
       anthropicParams: {
@@ -66,12 +66,13 @@ router.post('/api/training-plans/generate', requireAuth, aiRateLimit, async (req
       plan: textFromResponse(response),
       creditsCharged,
       remainingCredits: await creditService.getBalance(req.user.id),
+      viaSubscription, allowanceUsed, allowanceLimit, tierLabel,
     });
   } catch (err) { handleAiError(err, res, next); }
 });
 
 // ----------------------------------------------------------------------------
-// FIGHT CAMP BUILDER — 30 credits (most expensive feature, longest output)
+// FIGHT CAMP BUILDER — 18 credits (per FEATURE_COSTS; longest output of any feature)
 // ----------------------------------------------------------------------------
 const FIGHT_CAMP_SYSTEM_PROMPT = `You are building a full fight camp plan for a Hybrid Warfare Muay Thai practitioner with a confirmed fight date. Produce a week-by-week periodized plan from today through fight week, covering technical work, conditioning, strength, taper, and weight management, consistent with the system's existing 24-week block structure where applicable.`;
 
@@ -81,7 +82,7 @@ router.post('/api/fight-camp/build', requireAuth, aiRateLimit, async (req, res, 
     return res.status(400).json({ error: 'weeksUntilFight and currentLevel are required.' });
   }
   try {
-    const { response, creditsCharged } = await runAiRequest({
+    const { response, creditsCharged, viaSubscription, allowanceUsed, allowanceLimit, tierLabel } = await runAiRequest({
       userId: req.user.id,
       feature: 'fight_camp_builder',
       anthropicParams: {
@@ -98,6 +99,7 @@ router.post('/api/fight-camp/build', requireAuth, aiRateLimit, async (req, res, 
       camp: textFromResponse(response),
       creditsCharged,
       remainingCredits: await creditService.getBalance(req.user.id),
+      viaSubscription, allowanceUsed, allowanceLimit, tierLabel,
     });
   } catch (err) { handleAiError(err, res, next); }
 });

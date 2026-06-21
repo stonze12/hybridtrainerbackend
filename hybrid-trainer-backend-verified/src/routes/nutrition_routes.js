@@ -66,7 +66,7 @@ Fighter profile:
 - Variation seed: ${seed}`;
 
   try {
-    const { response, creditsCharged } = await runAiRequest({
+    const { response, creditsCharged, viaSubscription, allowanceUsed, allowanceLimit, tierLabel } = await runAiRequest({
       userId: req.user.id,
       feature: 'nutrition_plan',
       anthropicParams: {
@@ -104,6 +104,7 @@ Fighter profile:
       days,
       creditsCharged,
       remainingCredits: await creditService.getBalance(req.user.id),
+      viaSubscription, allowanceUsed, allowanceLimit, tierLabel,
     });
   } catch (err) { handleAiError(err, res, next); }
 });

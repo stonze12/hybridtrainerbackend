@@ -128,10 +128,51 @@ async function handleCheckoutCompleted(session) {
     });
   }
 
-  // Subscription checkouts are fully handled by invoice.payment_succeeded
-  // (fired immediately after checkout for the first invoice, and again
-  // every renewal) — we don't need to do anything subscription-specific
-  // here, since that event carries the subscription id we need.
+  if (session.metadata.purchase_type === 'subscription' && session.subscription) {
+    // Originally this was deferred to invoice.payment_succeeded, but
+    // Stripe sends invoice_payment.paid in this account instead — a
+    // real, different event name with no matching case in handleEvent,
+    // so subscriptions were silently never created. checkout.session.completed
+    // is confirmed reliable (it's what got us here), so handle setup
+    // directly: fetch the full subscription object from Stripe (the
+    // checkout session only carries the ID, not period dates) and
+    // upsert it the same way handleSubscriptionUpdated does.
+    const subscription = await stripe.subscriptions.retrieve(session.subscription);
+    const tierId = session.metadata.tier_id;
+    const tier = SUBSCRIPTION_TIERS[tierId];
+    if (!tier) {
+      throw new Error(`Checkout session ${session.id} has unknown tier_id metadata: ${tierId}`);
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `INSERT INTO subscriptions (user_id, stripe_subscription_id, stripe_price_id, status, current_period_start, current_period_end)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (stripe_subscription_id) DO UPDATE SET
+           status = EXCLUDED.status,
+           current_period_start = EXCLUDED.current_period_start,
+           current_period_end = EXCLUDED.current_period_end,
+           updated_at = now()`,
+        [
+          userId, subscription.id, subscription.items.data[0].price.id, subscription.status,
+          new Date(subscription.current_period_start * 1000),
+          new Date(subscription.current_period_end * 1000),
+        ]
+      );
+
+      await client.query(`UPDATE users SET membership_type = $1::membership_type WHERE id = $2`, [tierId, userId]);
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -217,17 +258,42 @@ async function handleInvoicePaymentFailed(invoice) {
 // being set/unset, and status transitions.
 // ----------------------------------------------------------------------------
 async function handleSubscriptionUpdated(subscription) {
-  await pool.query(
-    `UPDATE subscriptions
-     SET status = $1, current_period_end = $2, cancel_at_period_end = $3, updated_at = now()
-     WHERE stripe_subscription_id = $4`,
-    [
-      subscription.status,
-      new Date(subscription.current_period_end * 1000),
-      subscription.cancel_at_period_end,
-      subscription.id,
-    ]
-  );
+  // Not every customer.subscription.updated event includes a valid
+  // current_period_end (e.g. some events fire mid-transition, before
+  // Stripe has finalized the new period). Multiplying an undefined/null
+  // value by 1000 produces NaN, and new Date(NaN) is an "Invalid Date"
+  // that Postgres rejects outright with a DateTimeParseError — silently
+  // crashing the whole webhook handler for an update that didn't even
+  // need this field. Skip the date column when it's not usable; every
+  // OTHER field on this row still gets updated correctly.
+  const hasValidPeriodEnd = typeof subscription.current_period_end === 'number'
+    && Number.isFinite(subscription.current_period_end);
+
+  if (hasValidPeriodEnd) {
+    await pool.query(
+      `UPDATE subscriptions
+       SET status = $1, current_period_end = $2, cancel_at_period_end = $3, updated_at = now()
+       WHERE stripe_subscription_id = $4`,
+      [
+        subscription.status,
+        new Date(subscription.current_period_end * 1000),
+        subscription.cancel_at_period_end,
+        subscription.id,
+      ]
+    );
+  } else {
+    console.error(`[handleSubscriptionUpdated] subscription ${subscription.id} has no valid current_period_end (got: ${subscription.current_period_end}) — updating status/cancel flag only, skipping period_end this time.`);
+    await pool.query(
+      `UPDATE subscriptions
+       SET status = $1, cancel_at_period_end = $2, updated_at = now()
+       WHERE stripe_subscription_id = $3`,
+      [
+        subscription.status,
+        subscription.cancel_at_period_end,
+        subscription.id,
+      ]
+    );
+  }
 }
 
 // ----------------------------------------------------------------------------

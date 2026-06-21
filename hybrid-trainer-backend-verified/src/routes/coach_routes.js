@@ -185,7 +185,7 @@ router.post('/api/coach/ask', requireAuth, aiRateLimit, async (req, res, next) =
   }
 
   try {
-    const { response, creditsCharged } = await runAiRequest({
+    const { response, creditsCharged, viaSubscription, allowanceUsed, allowanceLimit, tierLabel } = await runAiRequest({
       userId: req.user.id,
       feature: 'ai_coach_question',
       anthropicParams: {
@@ -202,6 +202,7 @@ router.post('/api/coach/ask', requireAuth, aiRateLimit, async (req, res, next) =
       answer: textContent,
       creditsCharged,
       remainingCredits: await creditService.getBalance(req.user.id),
+      viaSubscription, allowanceUsed, allowanceLimit, tierLabel,
     });
 
   } catch (err) {

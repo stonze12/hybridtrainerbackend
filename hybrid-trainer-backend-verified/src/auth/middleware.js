@@ -1,6 +1,6 @@
 // ============================================================================
 // AUTH MIDDLEWARE — verifies JWT access tokens, attaches req.user, and
-// provides role-gating for routes (free / pro / admin).
+// provides role-gating for routes (free / fighter / competitor / admin).
 // ============================================================================
 
 const jwt = require('jsonwebtoken');
@@ -29,9 +29,10 @@ function requireAuth(req, res, next) {
   }
 }
 
-// Role hierarchy: admin can do anything pro can do, pro can do anything
-// free can do. requireRole('pro') allows both 'pro' and 'admin' through.
-const ROLE_RANK = { free: 0, pro: 1, admin: 2 };
+// Role hierarchy: admin can do anything a subscriber can do, Competitor
+// outranks Fighter, Fighter outranks free. requireRole('fighter') allows
+// fighter, competitor, and admin through.
+const ROLE_RANK = { free: 0, fighter: 1, competitor: 2, admin: 3 };
 
 function requireRole(minRole) {
   return (req, res, next) => {

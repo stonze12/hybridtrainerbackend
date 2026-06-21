@@ -37,6 +37,7 @@ async function getOrCreateStripeCustomer(user) {
 async function createSubscriptionCheckout({ user, tierId, successUrl, cancelUrl }) {
   const tier = SUBSCRIPTION_TIERS[tierId];
   if (!tier) throw new Error(`Unknown subscription tier: ${tierId}`);
+  console.error(`[DEBUG] tierId=${tierId} stripePriceId="${tier.stripePriceId}" (length=${(tier.stripePriceId||'').length})`);
   if (!tier.stripePriceId) throw new Error(`Subscription tier "${tierId}" has no Stripe Price ID configured — check the STRIPE_PRICE_FIGHTER_MONTHLY / STRIPE_PRICE_COMPETITOR_MONTHLY environment variables.`);
 
   const customerId = await getOrCreateStripeCustomer(user);

@@ -99,7 +99,7 @@ router.post('/api/sparring/review', requireAuth, aiRateLimit, async (req, res, n
   ];
 
   try {
-    const { response, creditsCharged } = await runAiRequest({
+    const { response, creditsCharged, viaSubscription, allowanceUsed, allowanceLimit, tierLabel } = await runAiRequest({
       userId: req.user.id,
       feature: 'sparring_review',
       anthropicParams: {
@@ -122,6 +122,7 @@ router.post('/api/sparring/review', requireAuth, aiRateLimit, async (req, res, n
       result,
       creditsCharged,
       remainingCredits: await creditService.getBalance(req.user.id),
+      viaSubscription, allowanceUsed, allowanceLimit, tierLabel,
     });
   } catch (err) { handleAiError(err, res, next); }
 });

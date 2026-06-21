@@ -41,7 +41,7 @@ function generateAccessToken(user) {
     {
       sub: user.id,
       email: user.email,
-      role: user.membership_type, // 'free' | 'pro' | 'admin' — checked by requireRole middleware
+      role: user.membership_type, // 'free' | 'fighter' | 'competitor' | 'admin' — checked by requireRole middleware
       type: 'access',
     },
     ACCESS_TOKEN_SECRET,

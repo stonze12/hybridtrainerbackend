@@ -83,7 +83,7 @@ router.post('/api/opponent/analyze', requireAuth, aiRateLimit, async (req, res, 
   ];
 
   try {
-    const { response, creditsCharged } = await runAiRequest({
+    const { response, creditsCharged, viaSubscription, allowanceUsed, allowanceLimit, tierLabel } = await runAiRequest({
       userId: req.user.id,
       feature: 'opponent_analysis',
       anthropicParams: {
@@ -106,6 +106,7 @@ router.post('/api/opponent/analyze', requireAuth, aiRateLimit, async (req, res, 
       result,
       creditsCharged,
       remainingCredits: await creditService.getBalance(req.user.id),
+      viaSubscription, allowanceUsed, allowanceLimit, tierLabel,
     });
   } catch (err) { handleAiError(err, res, next); }
 });
