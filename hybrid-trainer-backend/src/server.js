@@ -3,6 +3,7 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const app = express();
+console.log('>>> MARKER_TEST_12345 — if you see this in Render logs, the new server.js is running <<<');
 const REQUIRED_ENV_VARS = [
   'DATABASE_URL', 'REDIS_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET',
   'ANTHROPIC_API_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
@@ -20,7 +21,7 @@ app.use(cors({
 app.set('trust proxy', 1);
 app.use(require('./routes/stripe_webhook_routes'));
 app.use(express.json({ limit: '2mb' }));
-app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString(), marker: 'MARKER_TEST_12345' }));
 app.use(require('./routes/auth_routes'));
 app.use(require('./routes/user_routes'));
 app.use(require('./routes/billing_routes'));
