@@ -39,8 +39,6 @@ async function checkRateLimit({ key, maxRequests, windowSeconds }) {
 
 // ----------------------------------------------------------------------------
 // General API rate limit — applied to every authenticated route.
-// Generous, just to stop runaway clients/bugs, not meant to be a business
-// control.
 // ----------------------------------------------------------------------------
 function generalRateLimit(req, res, next) {
   const key = `general:${req.user?.id || req.ip}`;
@@ -56,13 +54,11 @@ function generalRateLimit(req, res, next) {
 }
 
 // ----------------------------------------------------------------------------
-// AI endpoint rate limit — stricter, and tiered by membership. This is
-// what actually protects your Anthropic spend from a single compromised
-// or abusive account hammering the most expensive endpoints.
+// AI endpoint rate limit
 // ----------------------------------------------------------------------------
 const AI_RATE_LIMITS = {
-  free: { maxRequests: 10, windowSeconds: 3600 },   // 10/hour
-  pro:  { maxRequests: 60, windowSeconds: 3600 },    // 60/hour
+  free: { maxRequests: 10, windowSeconds: 3600 },
+  pro:  { maxRequests: 60, windowSeconds: 3600 },
   admin:{ maxRequests: 200, windowSeconds: 3600 },
 };
 
@@ -86,13 +82,11 @@ function aiRateLimit(req, res, next) {
 }
 
 // ----------------------------------------------------------------------------
-// Login attempt limiter — by IP, independent of the per-user lockout
-// in auth_service.js. Stops credential-stuffing across many accounts
-// from a single source.
+// Login attempt limiter — temporarily set high so you can log in
 // ----------------------------------------------------------------------------
 function loginRateLimit(req, res, next) {
   const key = `login:${req.ip}`;
-  checkRateLimit({ key, maxRequests: 20, windowSeconds: 600 }) // 20 attempts / 10 min / IP
+  checkRateLimit({ key, maxRequests: 1000, windowSeconds: 600 })
     .then(({ allowed, retryAfterSeconds }) => {
       if (!allowed) {
         return res.status(429).json({ error: 'Too many login attempts from this network. Try again later.', retryAfter: retryAfterSeconds });
