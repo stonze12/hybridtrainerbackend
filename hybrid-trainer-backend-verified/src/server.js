@@ -1,77 +1,67 @@
-// ============================================================================
-// SERVER ENTRY POINT
-//
-// Route mounting order matters in two places:
-//   1. The Stripe webhook route MUST be mounted with express.raw() BEFORE
-//      express.json() is applied globally — otherwise the webhook
-//      signature check fails because the body has already been parsed
-//      and re-serialized, which changes its bytes.
-//   2. CORS and security headers apply globally and should wrap
-//      everything else.
-// ============================================================================
-require('dotenv').config();
-const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const app = express();
-// ----------------------------------------------------------------------------
-// Fail fast on missing required config — better to crash on boot with a
-// clear message than to start "successfully" and fail mysteriously on
-// the first request that needs a secret you forgot to set on your host.
-// ----------------------------------------------------------------------------
-const REQUIRED_ENV_VARS = [
-  'DATABASE_URL', 'REDIS_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET',
-  'ANTHROPIC_API_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
-];
-const missing = REQUIRED_ENV_VARS.filter(name => !process.env[name]);
-if (missing.length > 0) {
-  console.error(`Missing required environment variables: ${missing.join(', ')}`);
-  process.exit(1);
+const Redis = require('ioredis');
+const redis = new Redis(process.env.REDIS_URL);
+
+async function checkRateLimit({ key, maxRequests, windowSeconds }) {
+  const now = Date.now();
+  const windowStart = now - windowSeconds * 1000;
+  const redisKey = `ratelimit:${key}`;
+
+  const pipeline = redis.pipeline();
+  pipeline.zremrangebyscore(redisKey, 0, windowStart);
+  pipeline.zadd(redisKey, now, `${now}-${Math.random()}`);
+  pipeline.zcard(redisKey);
+  pipeline.expire(redisKey, windowSeconds);
+
+  const results = await pipeline.exec();
+  const requestCount = results[2][1];
+
+  return {
+    allowed: requestCount <= maxRequests,
+    remaining: Math.max(0, maxRequests - requestCount),
+    retryAfterSeconds: windowSeconds,
+  };
 }
-app.use(helmet());
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-  credentials: true,
-}));
-// Trust the first proxy hop — Fly.io's edge proxy (and most platform
-// load balancers generally) sits in front of your app, and req.ip needs
-// this to reflect the real client IP rather than the proxy's internal
-// address. Important for the login rate limiter and IP-based audit fields.
-app.set('trust proxy', 1);
-// --- Stripe webhook FIRST, with raw body, before express.json() ---
-app.use(require('./routes/stripe_webhook_routes'));
-// --- Everything else gets normal JSON body parsing ---
-app.use(express.json({ limit: '2mb' }));
-// --- Health check — used by your hosting platform's deploy verification ---
-app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
-// --- Route mounting ---
-app.use(require('./routes/auth_routes'));
-app.use(require('./routes/user_routes'));
-app.use(require('./routes/billing_routes'));
-app.use(require('./routes/coach_routes'));
-app.use(require('./routes/nutrition_routes'));
-app.use(require('./routes/food_routes'));
-app.use(require('./routes/sparring_routes'));
-app.use(require('./routes/opponent_routes'));
-app.use(require('./routes/ai_feature_routes'));
-app.use(require('./routes/admin_routes'));
-// --- Fitness progress + exercise logger ---
-app.use('/api/fitness', require('./routes/fitnessProgress'));
-app.use('/api/exercises', require('./routes/exerciseLog'));
-// --- 404 handler ---
-app.use((req, res) => res.status(404).json({ error: 'Not found.' }));
-// --- Global error handler — must be LAST ---
-app.use((err, req, res, next) => {
-  console.error(err);
-  const statusCode = err.statusCode || 500;
-  const message = statusCode === 500 ? 'Internal server error.' : err.message;
-  res.status(statusCode).json({ error: message });
-});
-const PORT = process.env.PORT || 3000;
-// Bind explicitly to 0.0.0.0, not just localhost — Fly.io routes traffic
-// into your VM from its edge network, and the app needs to accept
-// connections on all interfaces, not just loopback, for that to reach it.
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Hybrid Trainer API listening on port ${PORT}`);
-});
-module.exports = app;
+
+function generalRateLimit(req, res, next) {
+  const key = `general:${req.user?.id || req.ip}`;
+  checkRateLimit({ key, maxRequests: 120, windowSeconds: 60 })
+    .then(({ allowed, remaining, retryAfterSeconds }) => {
+      res.set('X-RateLimit-Remaining', remaining);
+      if (!allowed) {
+        return res.status(429).json({ error: 'Too many requests. Please slow down.', retryAfter: retryAfterSeconds });
+      }
+      next();
+    })
+    .catch(next);
+}
+
+const AI_RATE_LIMITS = {
+  free: { maxRequests: 10, windowSeconds: 3600 },
+  pro:  { maxRequests: 60, windowSeconds: 3600 },
+  admin:{ maxRequests: 200, windowSeconds: 3600 },
+};
+
+function aiRateLimit(req, res, next) {
+  const tier = req.user?.role || 'free';
+  const limits = AI_RATE_LIMITS[tier] || AI_RATE_LIMITS.free;
+  const key = `ai:${req.user.id}`;
+
+  checkRateLimit({ key, maxRequests: limits.maxRequests, windowSeconds: limits.windowSeconds })
+    .then(({ allowed, remaining, retryAfterSeconds }) => {
+      res.set('X-AI-RateLimit-Remaining', remaining);
+      if (!allowed) {
+        return res.status(429).json({
+          error: `AI request rate limit reached (${limits.maxRequests}/hour for ${tier} tier). Upgrade to Pro for a higher limit.`,
+          retryAfter: retryAfterSeconds,
+        });
+      }
+      next();
+    })
+    .catch(next);
+}
+
+function loginRateLimit(req, res, next) {
+  next();
+}
+
+module.exports = { checkRateLimit, generalRateLimit, aiRateLimit, loginRateLimit };
