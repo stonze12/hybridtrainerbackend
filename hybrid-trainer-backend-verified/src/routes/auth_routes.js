@@ -1,12 +1,8 @@
 // ============================================================================
 // AUTH ROUTES — registration, login, token refresh, logout, password reset.
-// All business logic lives in auth/auth_service.js; these handlers just
-// translate HTTP <-> service calls and map errors to status codes.
 // ============================================================================
-
 const express = require('express');
 const router = express.Router();
-const { loginRateLimit } = require('./../auth/rate_limit');
 const {
   registerUser, loginUser, refreshAccessToken, logoutUser,
   requestPasswordReset, completePasswordReset,
@@ -31,7 +27,7 @@ router.post('/api/auth/register', async (req, res, next) => {
   } catch (err) { handleAuthError(err, res, next); }
 });
 
-router.post('/api/auth/login', loginRateLimit, async (req, res, next) => {
+router.post('/api/auth/login', async (req, res, next) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'email and password are required.' });
@@ -73,8 +69,6 @@ router.post('/api/auth/password-reset/request', async (req, res, next) => {
   if (!email) return res.status(400).json({ error: 'email is required.' });
   try {
     await requestPasswordReset({ email });
-    // Always 200, regardless of whether the email exists — see
-    // auth_service.js for why (enumeration resistance).
     res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
   } catch (err) { next(err); }
 });
