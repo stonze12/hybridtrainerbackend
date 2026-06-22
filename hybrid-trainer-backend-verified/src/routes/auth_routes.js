@@ -1,6 +1,3 @@
-// ============================================================================
-// AUTH ROUTES — registration, login, token refresh, logout, password reset.
-// ============================================================================
 const express = require('express');
 const router = express.Router();
 const {
@@ -85,3 +82,4 @@ router.post('/api/auth/password-reset/complete', async (req, res, next) => {
 });
 
 module.exports = router;
+// UPDATED
